@@ -24,7 +24,11 @@ class Example(QMainWindow):
     def handleTimer(self):
         value = self.pbar.value()
         if value < 100:
+<<<<<<< HEAD
             value = value + 10
+=======
+            value = value + 1
+>>>>>>> d1af745449d8cd42809b5df53c777c42e70868ee
             self.pbar.setValue(value)
         else:
             self.timer.stop()

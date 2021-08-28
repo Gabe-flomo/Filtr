@@ -1,4 +1,5 @@
 import sqlite3
+<<<<<<< HEAD
 import pathlib
 
 # create a database table
@@ -25,3 +26,6 @@ class Database():
             - functions to interact with other database objects
     '''
     
+=======
+import pathlib
+>>>>>>> d1af745449d8cd42809b5df53c777c42e70868ee
