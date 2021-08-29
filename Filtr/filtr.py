@@ -160,16 +160,6 @@ class Filtr():
         exludes the files and returns a list of the directories"""
 
         dirs = []
-<<<<<<< HEAD
-        
-        with os.scandir(path) as dir:
-            for folder in dir:
-                if not folder.name.startswith(".") and folder.is_dir():
-                    dirs.append(folder.name)
-            self.current_folders = dirs
-            return dirs
-       
-=======
         if path is not None:
             with os.scandir(path) as dir:
                 for folder in dir:
@@ -184,7 +174,6 @@ class Filtr():
                         dirs.append(folder.name)
             self.current_folders = dirs
             return dirs
->>>>>>> d1af745449d8cd42809b5df53c777c42e70868ee
 
     def files(self,path = None, ignore = None):
         """This function lists only the files in a path and 
@@ -686,7 +675,6 @@ class Filtr():
     def duration(self,file):
         try:
             with wave.open(file, 'r') as audio:
-<<<<<<< HEAD
                 # gets the sample frequency or the samples per second
                 frate = audio.getframerate()
                 #print(f'frame rate: {frate}')
@@ -695,16 +683,6 @@ class Filtr():
                 #print(f'num of frames: {nframes}')
                 # the duration in seconds
                 duration = round(nframes/frate,2)
-=======
-                            # gets the sample frequency or the samples per second
-                            frate = audio.getframerate()
-                            #print(f'frame rate: {frate}')
-                            # the number of frames
-                            nframes = audio.getnframes()
-                            #print(f'num of frames: {nframes}')
-                            # the duration in seconds
-                            duration = round(nframes/frate,2)
->>>>>>> d1af745449d8cd42809b5df53c777c42e70868ee
                 
         except :
             #print(f"The File: {os.path.basename(file)} could not be read.\nThe duration will be set to 0")

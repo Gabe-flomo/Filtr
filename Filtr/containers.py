@@ -218,11 +218,13 @@ class File:
 
 # path = r"E:\Sample library\2021\Pierre Bourne Drum & Loop Kit"
 # path = r"E:\Sample library\2021"
-path = r"E:\Sample library"
-folder = Folder(path, walk=True)
-print(folder.frame)
-folder.frame.to_csv("E:\Documents\My Projects\Filtr\Data\csv\d.csv")
+# path = r"E:\Sample library"
+# folder = Folder(path, walk=False)
+# print(folder.frame)
+# folder.frame.to_csv("E:\Documents\My Projects\Filtr\Data\csv\d.csv")
 # print(json.dumps(folder.scan(path, deep = True), indent = 4))
 # folder.deep_scan(path)
+
+with open('hello')
         
 
