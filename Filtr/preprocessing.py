@@ -53,8 +53,8 @@ class Padder:
 class LogSpectrogramExtractor:
     """Responsible for extracting log spectrograms (in decibles) from a time series signal"""
 
-    def __init__(self, fram_size, hop_length):
-        self.frame_size = fram_size
+    def __init__(self, frame_size, hop_length):
+        self.frame_size = frame_size
         self.hop_length = hop_length
 
     def extract(self, signal):
@@ -65,6 +65,43 @@ class LogSpectrogramExtractor:
         spectrogram = np.abs(stft)
         log_spectrogram = librosa.amplitude_to_db(spectrogram)
         return log_spectrogram
+
+
+class MfccExtractor:
+    def __init__(self, mel_count = 15):
+        self.mel_count = mel_count
+
+    def extract(self, signal, order = None):
+        
+        # extract mfcc
+        mfccs = librosa.feature.mfcc(signal, n_mfcc= self.mel_count)
+
+        if order == 'delta':
+            # extract delta mfccs
+            mfccs = librosa.feature.delta(signal)
+        elif order == 'delta2':
+            # extract delta2 mfccs
+            mfccs = librosa.feature.delta(signal, order = 2)
+      
+        return mfccs
+
+
+class LogMelSpectrogramExtractor:
+    '''Extracts the log mel spectrogram from an audio sample '''
+    def __init__(self, frame_size, hop_length, rate):
+        self.frame_size = frame_size
+        self.hop_length = hop_length
+        self.sr = rate
+
+    def extract(self, signal, mel_count = 50):
+
+        # extract the mel spectrogram
+        mel = librosa.feature.melspectrogram(
+            signal, sr=self.sr, n_fft=self.frame_size, hop_length=self.hop_length, n_mels = mel_count)
+
+        # convert to log scale
+        log_mel = librosa.power_to_db(mel)
+        return log_mel
 
 
 class MinMaxNormalizer:
@@ -226,6 +263,12 @@ class Vectorizer:
         self._expected_num_samples = int(loader.sample_rate * loader.duration)
 
 
+    def extract(self, path):
+        pass
+
+    def _extract(self, signal):
+        pass
+
     def fit(self, data_path, save = True):
         ''' 
         data_path
@@ -304,7 +347,9 @@ if __name__ == '__main__':
     sr = 44100
     duration = 8
     mono = True
+    # Tells us how many samples to capture in each frame
     frame_size = 512
+    # determines how many samples to shift to the right to capture a new frame
     hop_length = 256
     sample_rate = 44100
 
