@@ -210,7 +210,10 @@ class Folder(DSP):
         return base
     ########## operator overloading ##########
 
+
+class Dataset:
     
+    pass    
 
 class File:
     pass

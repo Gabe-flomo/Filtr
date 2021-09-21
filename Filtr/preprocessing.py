@@ -4,10 +4,13 @@
 import librosa
 import numpy as np
 import os
-import pandas
+import pandas as pd
 import pickle
 import json
 import matplotlib.pyplot as plt 
+from DSP import DSP
+
+dsp = DSP()
 
 class Loader:
     """ Responsible for loading audio files """
@@ -88,10 +91,10 @@ class MfccExtractor:
 
 class LogMelSpectrogramExtractor:
     '''Extracts the log mel spectrogram from an audio sample '''
-    def __init__(self, frame_size, hop_length, rate):
+    def __init__(self, frame_size, hop_length):
         self.frame_size = frame_size
         self.hop_length = hop_length
-        self.sr = rate
+        self.sr = 44100
 
     def extract(self, signal, mel_count = 50):
 
@@ -186,16 +189,16 @@ class MinMaxNormalizer:
 class Saver:
     """Responsible to save features and the min max values """
 
-    def __init__(self, features_path, min_max_path):
-        self.features_path = features_path
-        self.min_max_path = min_max_path
+    def __init__(self):
+        pass
 
-    def save_features(self, features, file_path):
-        save_path = self._generate_save_path(file_path)
+    def save_features(self, features, file_path, save_path):
+        save_path = self._generate_save_path(file_path, save_path)
         np.save(save_path, features)
+        return save_path
 
-    def save_min_max_values(self, min_max_values):
-        save_path = os.path.join(self.min_max_path, "min_max.pkl" )
+    def save_min_max_values(self, min_max_values, filetype = 'json'):
+        save_path = os.path.join(self.min_max_path, f"min_max.{filetype}" )
         self._save(min_max_values, save_path)
     
     # @staticmethod
@@ -203,9 +206,9 @@ class Saver:
         with open(save_path, 'wb') as f:
             pickle.dump(data, f)
 
-    def _generate_save_path(self, file_path):
+    def _generate_save_path(self, file_path, save_path):
         filename = os.path.split(file_path)[1][:-4]
-        save_path = os.path.join(self.features_path, filename + ".npy")
+        save_path = os.path.join(save_path, filename + ".npy")
         return save_path
 
 
@@ -226,25 +229,83 @@ class Vectorizer:
     
 
 
-    def __init__(self, objects: [dict, None] ):
-        # create instances of the objects needed for the pipeline.
-        self._loader = objects.get("loader", None)
-        self.padder = objects.get("padder", None)
-        self.extractor = objects.get("extractor", None)
-        self.normalizer = objects.get("scaler", None)
-        self.saver = objects.get("saver", None)
+    def __init__(self, duration = 8, mono = True, frame_size = 512, hop_length = 256, sample_rate = 44100):
+       
+        self._spectrogram_path = r"E:\Documents\My Projects\Filtr\Data\audio_vectors\features\Spectrograms"
+        self._mel_spectrogram_path = r"E:\Documents\My Projects\Filtr\Data\audio_vectors\features\MelSpectrograms"
+        self._mfcc_path = r"E:\Documents\My Projects\Filtr\Data\audio_vectors\features\MFCCs"
+
+        # Tells us how many samples to capture in each frame
+        self.frame_size = frame_size
+        # determines how many samples to shift to the right to capture a new frame
+        self.hop_length = hop_length
+        # how many samples of audio per second
+        self.sample_rate = sample_rate
+        # limit the duration of each sample
+        self.duration = duration
+
+        # responsible for loading all the audio with a specified duration
+        self._loader = Loader(self.sample_rate, self.duration, mono)
+
+        # responsible for padding audio (if necessary)
+        self.padder = Padder()
+
+        # each object is used to extract a different type of feature
+        self.spectrogram = LogSpectrogramExtractor(self.frame_size, self.hop_length)
+        self.mel_spectrogram = LogMelSpectrogramExtractor(self.frame_size, self.hop_length)
+        self.mfcc = MfccExtractor()
+
+        # normalizes extracted features
+        self.scaler = MinMaxNormalizer()
+
+        # saves extracted features
+        self.saver = Saver()
+
         self.min_max_values = {}
         self._features = []
 
         # 44100 * 10 = 441000 expected samples
-        self._expected_num_samples = int(self.loader.sample_rate * self.loader.duration)
+        self.expected_num_samples = int(self.loader.sample_rate * self.loader.duration)
+
+        self.limit_reached = False
 
     @property
     def loader(self):
         return self._loader
+    
+    @loader.setter
+    def loader(self, loader):
+        self._loader = loader
+        self.expected_num_samples = int(loader.sample_rate * loader.duration)
+
+
+    @property
+    def spectrogram_path(self):
+        return self._spectrogram_path
+
+    @spectrogram_path.setter
+    def spectrogram_path(self, path):
+        self._spectrogram_path = path
+
+    @property
+    def mel_spectrogram_path(self):
+        return self._mel_spectrogram_path
+
+    @mel_spectrogram_path.setter
+    def mel_spectrogram_path(self, path):
+        self._mel_spectrogram_path = path
+
+    @property
+    def mfcc_path(self):
+        return self._mfcc_path
+
+    @mfcc_path.setter
+    def mfcc_path(self, path):
+        self._mfcc_path = path
 
     @property
     def features(self):
+        ''' returns a numpy array of all the features extracted from the audio that was loaded '''
         return np.array(self._features)
     
     @property
@@ -257,19 +318,8 @@ class Vectorizer:
         maximum = list(self.min_max_values.keys())[0]
         return self.min_max_values[maximum]['max']
     
-    @loader.setter
-    def loader(self, loader):
-        self._loader = loader
-        self._expected_num_samples = int(loader.sample_rate * loader.duration)
 
-
-    def extract(self, path):
-        pass
-
-    def _extract(self, signal):
-        pass
-
-    def fit(self, data_path, save = True):
+    def fit(self, data_path, save = True, limit = None):
         ''' 
         data_path
             - the path to the dataset you want to load 
@@ -287,60 +337,158 @@ class Vectorizer:
 
         # loop through ever directory and subdirectory in the path
         print(f"Extracting features from {data_path}")
-        for (root, subdirs, files) in os.walk(data_path):
-            # loop through every file 
-            for f in files:
-                file_path = os.path.join(root, f)
-                # print(file_path)
-                if not file_path.endswith(".wav"):
+        rows = []
+        for path in data_path:
+            for (root, subdirs, files) in os.walk(path):
+                if self.limit_reached:
+                    break
+                # loop through every file 
+                for f in files:
+                    file_path = os.path.join(root, f)
                     # print(file_path)
-                    continue
-                self._process_file(file_path)
-                # print(f"Processed file: {file_path}")
+                    if not file_path.endswith(".wav"):
+                        # print(file_path)
+                        continue
+                    elif f.startswith("."):
+                        print(f"Skipping {f} in {subdirs}")
+                        continue
+                    
+                    data = {
+                        "path": file_path,                         # get the full file path
+                        "filename": f,                             # get the filename
+                        "full_duration": dsp.duration(file_path),  # get the duration
+                        "duration_limit": self.duration            # get the trimmed duration
+                    }
+                    
+                    try:
+                        temp = self._process_file(file_path, save = save)
+                    except Exception as e:
+                        print(f"There was an error when trying to load {f}. {e}")
+                        continue
+                    
+                    # get the features paths
+                    # get the min and max values
+                    data.update(temp)
 
-            if save:
-                self.saver.save_min_max_values(self.min_max_values)
+                    # add the data as a row that can be used in a DataFrame
+                    rows.append(data)
+
+                    if len(rows) >= limit:
+                        print("Limit exceeded")  
+                        self.limit_reached = True
+                        break  
+
+        print(f"Finished processing {len(rows)} files (¬‿¬)")       
+
+        # return a dataframe of the data
+        return pd.DataFrame(rows)
 
     def _process_file(self, file_path, save = True):
-        
+
+        file_dict = {}
+
+        # flag that determines if the signal was padded or not
+        padded = False
+        missing_samples = 0
+
+        # extract the signal        
         signal = self.loader.load(file_path)
+
+        # pad the signal if necessary
         if self._needs_padding(signal):
-            # pad the signal 
-            signal = self._apply_padding(signal)
+            padded = True
+            signal, missing_samples = self._apply_padding(signal)
 
-        # extract features 
-        features = self.extractor.extract(signal)
+        # extract audio features 
+        spectrogram, mel_spectrogram, mfccs = self._extract_all(signal)
 
-        # normalize the features
-        normalized = self.normalizer.normalize(features)
-        self._features.append(normalized)
-        save_path = 'min_max_values'
+        # Adds a the column for if the signal was padded or not
+        file_dict['padding'] = padded
+        file_dict['missing_samples'] = missing_samples
+
+        # store the min and max values for each feature
+        file_dict["spectrogram_min"] = spectrogram.min()
+        file_dict["spectrogram_max"] = spectrogram.max()
+
+        file_dict["mel_spectrogram_min"] = mel_spectrogram.min()
+        file_dict["mel_spectrogram_max"] = mel_spectrogram.max()
+
+        file_dict["mfcc_min"] = mfccs.min()
+        file_dict["mfcc_max"] = mfccs.max()
+
+        # store the features in a dict so that we can pass multiple features around at once
+        features = {
+            "spectrogram": spectrogram,
+            "mel_spectrogram": mel_spectrogram,
+            "mfccs": mfccs
+        }
+
+        # normalize the features between the min and max value and redefine the features dict with the normalized features
+        features = self._normalize_all(features)
+
         # save the extracted features
         if save:
-            save_path = self.saver.save_features(normalized, file_path)
+            # the locations to save each of the features
+            spec = r"E:\Documents\My Projects\Filtr\Data\audio_vectors\features\Spectrograms"
+            mel = r"E:\Documents\My Projects\Filtr\Data\audio_vectors\features\MelSpectrograms"
+            mfcc = r"E:\Documents\My Projects\Filtr\Data\audio_vectors\features\MFCCs"
 
-        # store min max values
-        self._store_min_max(save_path, features.min(), features.max())
+            # save the normalized features to the appropriate location
+            spec_path = self.saver.save_features(features["spectrogram"], file_path, save_path = spec)
+            mels_path = self.saver.save_features(features["mel_spectrogram"], file_path, save_path = mel)
+            mfcc_path = self.saver.save_features(features["mfccs"], file_path, save_path= mfcc)
+
+            # add the features location to the dict that holds info about the file
+            file_dict['spectrogram_path'] = spec_path
+            file_dict['mel_spectrogram_path'] = mels_path
+            file_dict['mfcc_path'] = mfcc_path
+
+        return file_dict
 
     def _needs_padding(self, signal):
         ''' Resposible for calculating the expected number of samples for a given duration.
             This is how we get a fixed length vector 👏🏾 '''
 
-        if len(signal) < self._expected_num_samples:
+        if len(signal) < self.expected_num_samples:
             return True 
         return False
 
     def _apply_padding(self, signal):
         # calculate number of missing samples (expected sample rate - signal sample rate)
-        num_missing_samples = self._expected_num_samples - len(signal)
+        num_missing_samples = self.expected_num_samples - len(signal)
         padded_signal = self.padder.right_pad(signal, num_missing_samples)
-        return padded_signal
+        return padded_signal, num_missing_samples
 
     def _store_min_max(self, save_path, min_val, max_val):
         self.min_max_values[save_path] = {
             "min": min_val,
             "max": max_val
         }
+
+    def _extract_all(self, signal):
+        ''' Used to extract a log spectrogram, a mel spectrogram and Mfccs '''
+        # extract the log spectrogram
+        spectrogram = self.spectrogram.extract(signal)
+        # extract the log mel spectrogram
+        mel_spectrogram = self.mel_spectrogram.extract(signal)
+        # extract the mfccs 
+        mfccs = self.mfcc.extract(signal)
+
+        return spectrogram, mel_spectrogram, mfccs
+
+    def _normalize_all(self, features: dict):
+        '''Responsible for normalizing all of the features that were exracted'''
+
+        # normalize all of the features
+        normalized_spectrogram = self.scaler.normalize(features["spectrogram"])
+        normalized_mel_spectrogram = self.scaler.normalize(features["mel_spectrogram"])
+        normalized_mfccs = self.scaler.normalize(features["mfccs"])
+        
+        return {"spectrogram": normalized_spectrogram,
+               "mel_spectrogram": normalized_mel_spectrogram, 
+                "mfccs": normalized_mfccs}
+
+
 
 if __name__ == '__main__':
     
