@@ -210,10 +210,103 @@ class Folder(DSP):
         return base
     ########## operator overloading ##########
 
+class Plot:
+    pass
 
-class Dataset:
+class DataRow:
+    pass
+
+
+class Labeler:
+    """ Responsible for extracting a useful label from a filepath/name """
+
+    def __init__(self):
+        self.categories = {
+
+            "Kick": [],
+            "Snare": [],
+            "Clap": [],
+            "808": [],
+            "Perc": [],
+            "Hat": ["Open_hat", "Closed_hat", ],
+            "Cymbal": [],
+            "Ride": [],
+            "Piano": [],
+            "Electric_paino": [],
+            "Guitar": [],
+            "Woodwind": [],
+            "Brass": [],
+            "Synth": [],
+            "Pad": [],
+            "Foley": [],
+
+
+
+        }
+
+    @property
+    def labels(self):
+        return list(self.categories.keys())
+
+class Dataset(Labeler):
     
-    pass    
+    def __init__(self, dataset):
+        # initialize labeler
+        super().__init__()
+
+        # determine the type of the dataset that was passed   
+        self.dataset = self._infer_dataset(dataset)
+        
+        # responsible for automatic labeling files
+        # self.labeler = Labeler()
+        
+
+
+    def _infer_dataset(self, dataset):
+        ''' Responsible for verifying the data that is being passed '''
+        def is_list_of_dicts(lst):
+            if all([isinstance(x, dict) for x in lst]):
+                return True
+            else:
+                return False
+
+        if isinstance(dataset, list) and is_list_of_dicts(dataset):
+            dataset = pd.DataFrame(dataset)            
+        elif isinstance(dataset, pandas.core.frame.DataFrame):
+            pass
+        elif isinstance(dataset, str):
+            dataset = pd.read_csv(dataset)
+        else:
+            raise TypeError('Dataset is an invalid type. Must be a path to a csv file, List of dictionaries, or Dataframe')
+        
+        return dataset
+
+    def _infer_location(self, index):
+        ''' Responsible for determining if the index passed was an acceptable option for an index location or
+            checking if it was a slice.
+        '''
+        pass
+
+    def _get_label(self, pattern):
+        ''' Responsible for extracting a '''
+
+    def __getitem__(self, index):
+        '''Responsible for returning the row of data at the specified index
+           Returns a DataRow object
+        '''
+        pass
+
+    # @property
+    # def labels(self):
+    #     ''' responsible for returning the labels of the dataset.
+    #         returns a dictionary of labels and numeric value
+    #     '''
+    #     pass
+
+         
+
+
+
 
 class File:
     pass
@@ -228,6 +321,12 @@ class File:
 # print(json.dumps(folder.scan(path, deep = True), indent = 4))
 # folder.deep_scan(path)
 
-with open('hello')
-        
+# df = Dataset([{'hello':'world'}, {'Goodby':"world"}])
+# print(df.labels)
 
+
+
+
+
+
+print(is_list_of_dicts(lst))
