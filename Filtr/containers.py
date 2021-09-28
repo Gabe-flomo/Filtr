@@ -238,7 +238,7 @@ class Labeler:
             "Brass": [],
             "Synth": [],
             "Pad": [],
-            "Foley": [],
+            "Foley": []
 
 
 
@@ -256,9 +256,14 @@ class Dataset(Labeler):
 
         # determine the type of the dataset that was passed   
         self.dataset = self._infer_dataset(dataset)
+        self.dataset.drop('Unnamed: 0', axis = 1, inplace = True)
+        
+        # self.dataset = self.read_csv(dataset)
         
         # responsible for automatic labeling files
         # self.labeler = Labeler()
+
+    
         
 
 
@@ -272,7 +277,7 @@ class Dataset(Labeler):
 
         if isinstance(dataset, list) and is_list_of_dicts(dataset):
             dataset = pd.DataFrame(dataset)            
-        elif isinstance(dataset, pandas.core.frame.DataFrame):
+        elif isinstance(dataset, pd.core.frame.DataFrame):
             pass
         elif isinstance(dataset, str):
             dataset = pd.read_csv(dataset)
@@ -289,12 +294,13 @@ class Dataset(Labeler):
 
     def _get_label(self, pattern):
         ''' Responsible for extracting a '''
-
-    def __getitem__(self, index):
-        '''Responsible for returning the row of data at the specified index
-           Returns a DataRow object
-        '''
         pass
+
+    # def __getitem__(self, index):
+    #     '''Responsible for returning the row of data at the specified index
+    #        Returns a DataRow object
+    #     '''
+    #     pass
 
     # @property
     # def labels(self):
@@ -324,9 +330,16 @@ class File:
 # df = Dataset([{'hello':'world'}, {'Goodby':"world"}])
 # print(df.labels)
 
+path = r"E:\Documents\My Projects\Filtr\Data\csv\training_data.csv"
+data = Dataset(path)
+print(data.dataset.iloc[1][0])
+
+for row in data.dataset.itertuples():
+    print(row[1])
 
 
 
 
 
-print(is_list_of_dicts(lst))
+
+
